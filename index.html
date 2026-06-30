@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Or HaDorot</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{--bg:#070b16;--card:#101827;--line:#26344f;--text:#f8fafc;--muted:#9aa8bd;--gold:#f7c948;--blue:#58c4ff;--green:#3ee28f;--red:#ff6b7a;--purple:#b58cff}
+    *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:radial-gradient(circle at top,#18243d,#05070d 62%);color:var(--text)}
+    .wrap{max-width:1080px;margin:auto;padding:16px}.hero{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px}.brand h1{margin:0;font-size:30px}.brand p{margin:4px 0 0;color:var(--muted)}
+    .card{background:rgba(16,24,39,.88);border:1px solid var(--line);border-radius:22px;padding:17px;box-shadow:0 18px 55px #0006}.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}@media(max-width:860px){.grid{grid-template-columns:1fr}.brand h1{font-size:24px}}
+    input,button,select{font:inherit}input,select{width:100%;background:#05070d;color:var(--text);border:1px solid var(--line);border-radius:14px;padding:12px}button{border:0;border-radius:14px;padding:12px 14px;background:var(--blue);font-weight:900;color:#02131e;cursor:pointer}button.secondary{background:#172033;color:var(--text);border:1px solid var(--line)}button.good{background:var(--green);color:#032012}button.danger{background:var(--red);color:#32040b}button.gold{background:var(--gold);color:#2b1c00}button:disabled{opacity:.45;cursor:not-allowed}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.row>*{flex:1}.hidden{display:none!important}.muted{color:var(--muted)}.small{font-size:13px}.tiny{font-size:12px}.big{font-size:34px;font-weight:1000;margin:6px 0}.rtl{direction:rtl;font-family:"Times New Roman",serif}.pill{display:inline-flex;border:1px solid var(--line);background:#05070d;color:#cfe2ff;border-radius:999px;padding:7px 10px;margin:4px 4px 4px 0;font-size:13px}.pill.green{color:#b7ffd9}.pill.gold{color:#ffe8a3}.pill.purple{color:#dfccff}
+    .nav{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}.nav button{background:#0b1222;color:var(--text);border:1px solid var(--line)}.nav button.active{background:var(--gold);color:#261900}@media(max-width:760px){.nav{grid-template-columns:1fr 1fr}}
+    .progress{height:12px;background:#05070d;border:1px solid var(--line);border-radius:99px;overflow:hidden}.bar{height:100%;background:linear-gradient(90deg,var(--green),var(--blue));width:0}.sage{border-top:1px solid var(--line);padding:14px 0}.sage:first-child{border-top:0}.bio{display:none;margin-top:10px;line-height:1.55;color:#dbeafe}.bio.open{display:block}.result{font-weight:900;margin-top:8px}.ok{color:var(--green)}.bad{color:var(--red)}.leader{width:100%;border-collapse:collapse}.leader td,.leader th{border-bottom:1px solid var(--line);padding:10px;text-align:left}.leader th{color:#cfe2ff}.notice{border:1px solid #4b3b16;background:#1a1405;border-radius:16px;padding:12px;color:#ffe8a3}.source{font-size:12px;color:#99c8ff;word-break:break-word}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="brand"><h1>📚 Or HaDorot</h1><p>Apprends les Maîtres d’Israël, génération après génération · défis · classement</p></div>
+    <div id="userBox" class="card small"></div>
+  </div>
+
+  <section id="setup" class="card hidden">
+    <h2>Connexion</h2>
+    <p class="muted">Connecte-toi pour retrouver ton compte depuis n’importe quel téléphone.</p>
+    <div class="grid">
+      <div><h3>Créer un compte</h3><input id="signupEmail" placeholder="Email"><br><br><input id="signupPass" type="password" placeholder="Mot de passe"><br><br><input id="signupNick" placeholder="Surnom pour le classement"><br><br><button onclick="signUp()">Créer mon compte</button></div>
+      <div><h3>Se connecter</h3><input id="loginEmail" placeholder="Email"><br><br><input id="loginPass" type="password" placeholder="Mot de passe"><br><br><button class="good" onclick="signIn()">Connexion</button></div>
+    </div>
+    <p class="tiny muted">Si Supabase demande une confirmation email, vérifie ta boîte mail.</p>
+  </section>
+
+  <main id="app" class="hidden">
+    <div class="nav">
+      <button class="active" onclick="show('home',this)">Aujourd’hui</button>
+      <button onclick="show('leaderboard',this)">Classement</button>
+      <button onclick="show('challenge',this)">Défis</button>
+      <button onclick="show('account',this)">Compte</button>
+    </div>
+
+    <section id="home" class="grid">
+      <div class="card"><div id="dailyHeader"></div><div id="dailyContent"></div><div id="quizBox"></div></div>
+      <div class="card"><h2>Score</h2><div class="progress"><div class="bar" id="scoreBar"></div></div><p id="scoreText" class="muted"></p><div class="notice small" id="fridayNotice"></div></div>
+    </section>
+
+    <section id="leaderboard" class="card hidden"><h2>Classement général</h2><p class="muted">Classement basé sur les contrôles enregistrés.</p><div id="leaderboardBox"></div></section>
+    <section id="challenge" class="card hidden"><h2>Défis entre amis</h2><div class="grid"><div><h3>Créer un défi</h3><input id="challengeTitle" placeholder="Ex : Défi avec David et papa"><br><br><button onclick="createChallenge()">Créer</button></div><div><h3>Rejoindre un défi</h3><input id="challengeId" placeholder="Colle l'identifiant du défi"><br><br><button class="secondary" onclick="joinChallenge()">Rejoindre</button></div></div><div id="myChallenges"></div></section>
+    <section id="account" class="card hidden"><h2>Compte</h2><p id="accountInfo"></p><button class="secondary" onclick="setGlobalMode()">Participer au classement mondial</button> <button class="gold" onclick="startSoloMode()">Recommencer seul depuis le début</button> <button class="danger" onclick="signOut()">Déconnexion</button></section>
+  </main>
+</div>
+
+<script>
+const SUPABASE_URL = "https://injrleetccqdaftpfqee.supabase.co/rest/v1/";
+const SUPABASE_ANON_KEY = "sb_publishable_P7Hs9KjLEATsfq-Ua_8C-HQ_6bxCFkAb";
+const DAILY_UNLOCK = 2;
+const FRIDAY_LIMIT_HOUR = 19;
+
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let session=null, profile=null, sages=[], settings={}, mode={mode:'global',solo_start_date:null};
+
+function $(id){return document.getElementById(id)}
+function esc(s){return String(s??'').replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]))}
+function norm(s){return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[״׳"'`’]/g,'').replace(/[^a-z0-9א-ת ]/gi,' ').replace(/\s+/g,' ').trim()}
+function todayISO(){return new Date().toISOString().slice(0,10)}
+function dateDiffDays(a,b){const x=new Date(a+'T00:00:00'), y=new Date(b+'T00:00:00'); return Math.max(0,Math.floor((y-x)/86400000))}
+function startDate(){return mode.mode==='solo'&&mode.solo_start_date?mode.solo_start_date:(settings.global_start_date||todayISO())}
+function unlockedCount(){return Math.min(sages.length,(dateDiffDays(startDate(),todayISO())+1)*DAILY_UNLOCK)}
+function unlocked(){return sages.slice(0,unlockedCount())}
+function todayItems(){const start=dateDiffDays(startDate(),todayISO())*DAILY_UNLOCK; return sages.slice(start,start+DAILY_UNLOCK)}
+function isFriday(){return new Date().getDay()===5}
+function beforeFridayLimit(){return new Date().getHours()<FRIDAY_LIMIT_HOUR}
+function weekItems(){return unlocked().slice(Math.max(0,unlocked().length-14))}
+
+function show(id,btn){
+  document.querySelectorAll('main section').forEach(s=>s.classList.add('hidden'));
+  $(id).classList.remove('hidden');
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(id==='leaderboard') loadLeaderboard();
+  if(id==='challenge') loadChallenges();
+  if(id==='account') renderAccount();
+}
+
+async function init(){
+  if(SUPABASE_URL.includes('COLLE_ICI')){
+    $('setup').classList.remove('hidden');
+    $('setup').innerHTML='<h2>Il manque Supabase</h2><p>Remplace SUPABASE_URL et SUPABASE_ANON_KEY dans le fichier index.html.</p>';
+    return;
+  }
+  const {data:{session:s}}=await db.auth.getSession();
+  session=s;
+  if(!session){
+    $('setup').classList.remove('hidden');
+    $('app').classList.add('hidden');
+    renderUserBox();
+    return;
+  }
+  await loadData();
+  $('setup').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  renderAll();
+}
+
+async function loadData(){
+  const uid=session.user.id;
+  let res=await db.from('profiles').select('*').eq('id',uid).maybeSingle();
+  profile=res.data;
+  let st=await db.from('site_settings').select('*');
+  settings=Object.fromEntries((st.data||[]).map(x=>[x.key,x.value]));
+  let sg=await db.from('sages').select('*').order('display_order');
+  sages=sg.data||[];
+  let md=await db.from('user_modes').select('*').eq('user_id',uid).maybeSingle();
+  if(!md.data){
+    await db.from('user_modes').insert({user_id:uid,mode:'global'});
+    md={data:{mode:'global',solo_start_date:null}};
+  }
+  mode=md.data;
+}
+
+function renderUserBox(){
+  if(!session){$('userBox').innerHTML='<b>Non connecté</b>';return}
+  $('userBox').innerHTML=`<b>${esc(profile?.nickname||session.user.email)}</b><br><span class="muted">Mode : ${esc(mode.mode==='global'?'classement mondial':'solo')}</span>`;
+}
+
+function renderAll(){renderUserBox();renderHome();renderAccount()}
+
+function sageHTML(p){
+  return `<div class="sage"><span class="pill gold">${esc(p.era)}</span><span class="pill purple">${esc(p.category)}</span><div class="big">${esc(p.nickname)} <span class="rtl">${esc(p.hebrew||'')}</span></div><h3>${esc(p.full_name)}</h3><p><b>Date :</b> ${esc(p.years)}</p><button class="secondary" onclick="toggleBio('${p.id}')">Bio / histoire</button><div id="bio-${p.id}" class="bio"><p>${esc(p.short_bio)}</p><p><b>À retenir :</b> ${esc(p.story)}</p><p class="source"><b>Source :</b> ${esc(p.source)}</p></div></div>`;
+}
+
+function toggleBio(id){$('bio-'+id).classList.toggle('open')}
+
+async function renderHome(){
+  const t=todayItems();
+  const uid=session.user.id;
+  const val=await db.from('learn_validations').select('sage_id').eq('user_id',uid).eq('mode_scope',mode.mode);
+  const doneIds=(val.data||[]).map(x=>x.sage_id);
+  const todayDone=t.every(x=>doneIds.includes(x.id));
+
+  $('dailyHeader').innerHTML=`<span class="pill green">Jour ${dateDiffDays(startDate(),todayISO())+1}</span><span class="pill">${mode.mode==='global'?'Classement mondial':'Mode solo'}</span><h2>${todayDone?'Aujourd’hui validé':'Tes 2 noms du jour'}</h2>`;
+  $('dailyContent').innerHTML=t.length?t.map(sageHTML).join(''):'<p class="muted">Tous les noms de la base actuelle sont débloqués.</p>';
+  if(t.length&&!todayDone){$('dailyContent').innerHTML+=`<button class="good" onclick="validateToday()">J’ai appris les 2 noms</button>`}
+
+  renderQuiz(todayDone);
+  const pct=Math.round(doneIds.length/Math.max(1,sages.length)*100);
+  $('scoreBar').style.width=pct+'%';
+  $('scoreText').textContent=`${doneIds.length}/${sages.length} fiches validées. ${unlockedCount()} noms débloqués.`;
+  $('fridayNotice').innerHTML=isFriday()?`Vendredi : après validation des 2 noms, le contrôle est ouvert jusqu’à ${FRIDAY_LIMIT_HOUR}h. Après, tu peux encore le faire, mais sans bonus de ponctualité.`:'Le contrôle hebdo apparaît automatiquement le vendredi après validation des 2 noms.';
+}
+
+async function validateToday(){
+  const rows=todayItems().map(p=>({user_id:session.user.id,sage_id:p.id,mode_scope:mode.mode}));
+  if(rows.length) await db.from('learn_validations').upsert(rows,{onConflict:'user_id,sage_id,mode_scope'});
+  await renderHome();
+}
+
+function renderQuiz(todayDone){
+  if(!isFriday()){$('quizBox').innerHTML='';return}
+  if(!todayDone){$('quizBox').innerHTML='<div class="notice">Valide d’abord les 2 noms du jour pour ouvrir le contrôle.</div>';return}
+  const items=weekItems();
+  $('quizBox').innerHTML=`<hr style="border-color:var(--line)"><h2>Contrôle du vendredi</h2><p class="muted">Nom complet + époque. La date est bonus.</p>`+items.map((p,i)=>`<div class="sage"><p><b>${i+1}.</b> Pour <b>${esc(p.nickname)}</b>, donne le nom complet, l’époque, et la date en bonus.</p><input id="q-name-${i}" placeholder="Nom complet"><br><br><input id="q-era-${i}" placeholder="Époque"><br><br><input id="q-date-${i}" placeholder="Date bonus"><br><br><button class="secondary" onclick="voiceAnswer('q-name-${i}')">🎙️ Nom vocal</button> <button onclick="checkOne(${i})">Corriger</button><div id="q-res-${i}" class="result"></div></div>`).join('')+`<button class="gold" onclick="submitWeekly()">Enregistrer mon contrôle</button>`;
+  window.currentQuiz=items;
+}
+
+function checkOne(i){
+  const p=window.currentQuiz[i];
+  const name=norm($('q-name-'+i).value), era=norm($('q-era-'+i).value), date=norm($('q-date-'+i).value);
+  const aliases=[p.full_name,...(p.aliases||[])].map(norm);
+  const nameOk=aliases.some(a=>name===a||name.includes(a)||a.includes(name));
+  const eraOk=[norm(p.era),'rishon','richon','rishonim','richonim'].includes(era);
+  const dateOk=date && norm(p.years).includes(date.slice(0,4));
+  let pts=(nameOk?5:0)+(eraOk?3:0)+(dateOk?2:0);
+  $('q-res-'+i).className='result '+(pts>=8?'ok':'bad');
+  $('q-res-'+i).textContent=`${pts}/10 — attendu : ${p.full_name}, ${p.era}, ${p.years}`;
+  return pts;
+}
+
+async function submitWeekly(){
+  let score=0;
+  (window.currentQuiz||[]).forEach((_,i)=>score+=checkOne(i));
+  if(isFriday()&&beforeFridayLimit()) score+=5;
+  const max=(window.currentQuiz||[]).length*10+5;
+  await db.from('quiz_attempts').insert({user_id:session.user.id,quiz_type:'weekly',scope_id:mode.mode,score,max_score:max,details:{punctual_bonus:isFriday()&&beforeFridayLimit()}});
+  alert('Contrôle enregistré : '+score+'/'+max);
+}
+
+function voiceAnswer(inputId){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('Vocal non supporté sur ce navigateur. Réponds à l’écrit.');return}
+  const r=new SR();
+  r.lang='fr-FR';
+  r.interimResults=false;
+  r.maxAlternatives=1;
+  r.onresult=e=>$(inputId).value=e.results[0][0].transcript;
+  r.start();
+}
+
+async function loadLeaderboard(){
+  const {data}=await db.from('quiz_attempts').select('user_id,score,max_score,created_at,profiles(nickname)').order('score',{ascending:false}).limit(50);
+  if(!data?.length){$('leaderboardBox').innerHTML='<p class="muted">Aucun contrôle enregistré.</p>';return}
+  $('leaderboardBox').innerHTML='<table class="leader"><tr><th>#</th><th>Surnom</th><th>Score</th><th>Date</th></tr>'+data.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.profiles?.nickname||'Utilisateur')}</td><td>${x.score}/${x.max_score}</td><td>${new Date(x.created_at).toLocaleDateString('fr-FR')}</td></tr>`).join('')+'</table>';
+}
+
+async function createChallenge(){
+  const title=$('challengeTitle').value.trim();
+  if(!title) return alert('Mets un titre.');
+  const {data,error}=await db.from('challenges').insert({title,owner_id:session.user.id}).select().single();
+  if(error) return alert(error.message);
+  await db.from('challenge_members').insert({challenge_id:data.id,user_id:session.user.id});
+  alert('Défi créé. Identifiant à envoyer aux amis : '+data.id);
+  loadChallenges();
+}
+
+async function joinChallenge(){
+  const id=$('challengeId').value.trim();
+  if(!id)return;
+  const {error}=await db.from('challenge_members').insert({challenge_id:id,user_id:session.user.id});
+  if(error) return alert(error.message);
+  alert('Défi rejoint.');
+  loadChallenges();
+}
+
+async function loadChallenges(){
+  const {data}=await db.from('challenge_members').select('challenge_id,challenges(title,start_date,created_at)').eq('user_id',session.user.id);
+  $('myChallenges').innerHTML='<h3>Mes défis</h3>'+(data||[]).map(x=>`<div class="sage"><b>${esc(x.challenges?.title)}</b><p class="muted tiny">ID à partager : ${esc(x.challenge_id)}</p></div>`).join('');
+}
+
+function renderAccount(){
+  if(!$('accountInfo'))return;
+  $('accountInfo').innerHTML=`Connecté : <b>${esc(profile?.nickname)}</b><br>Email : ${esc(session?.user?.email)}<br>Mode actuel : <b>${mode.mode==='global'?'classement mondial':'solo/recommencé'}</b>`;
+}
+
+async function setGlobalMode(){
+  await db.from('user_modes').upsert({user_id:session.user.id,mode:'global',solo_start_date:null,updated_at:new Date().toISOString()});
+  await loadData(); renderAll(); alert('Mode classement mondial activé.');
+}
+
+async function startSoloMode(){
+  await db.from('user_modes').upsert({user_id:session.user.id,mode:'solo',solo_start_date:todayISO(),updated_at:new Date().toISOString()});
+  await loadData(); renderAll(); alert('Mode solo lancé depuis aujourd’hui.');
+}
+
+async function signUp(){
+  const email=$('signupEmail').value.trim(), password=$('signupPass').value, nick=$('signupNick').value.trim();
+  if(!email||!password||!nick)return alert('Remplis email, mot de passe et surnom.');
+  const {data,error}=await db.auth.signUp({email,password});
+  if(error)return alert(error.message);
+  const uid=data.user?.id;
+  if(uid){
+    await db.from('profiles').insert({id:uid,nickname:nick});
+    await db.from('user_modes').insert({user_id:uid,mode:'global'});
+  }
+  alert('Compte créé. Connecte-toi ou confirme ton email si demandé.');
+}
+
+async function signIn(){
+  const {error}=await db.auth.signInWithPassword({email:$('loginEmail').value.trim(),password:$('loginPass').value});
+  if(error)return alert(error.message);
+  location.reload();
+}
+
+async function signOut(){
+  await db.auth.signOut();
+  location.reload();
+}
+
+init();
+</script>
+</body>
+</html>
